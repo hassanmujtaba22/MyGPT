@@ -74,10 +74,14 @@ python scripts/train.py --config configs/coding.yaml
 # 3. Code with it
 python scripts/chat.py  --config configs/coding.yaml --coding
 ```
-The dataset builder skips `node_modules`, build output, lockfiles, tests, and
-anything secret-looking; cloned repos and the dataset are git-ignored so private
-code never gets committed. Full guide (incl. cloud-GPU training) in
-[`docs/coding.md`](docs/coding.md).
+Pick specific repos with `--repos "repoA,repoB"`. The builder skips
+`node_modules`, build output, lockfiles, tests, and anything secret-looking;
+cloned repos and the dataset are git-ignored so private code never gets
+committed.
+
+**No GPU?** Open **`notebooks/train_on_colab.ipynb`** in Google Colab — it builds
+the dataset and fine-tunes on a free GPU, then downloads the adapter to run
+locally. Full guide in [`docs/coding.md`](docs/coding.md).
 
 ### Choosing a backend (transformers vs Ollama)
 
@@ -162,6 +166,8 @@ MyGPT/
 │   └── _common.py            # shared helpers (config, model loading)
 ├── webui/
 │   └── index.html            # self-contained web chat front-end
+├── notebooks/
+│   └── train_on_colab.ipynb  # one-click coding fine-tune on a free GPU
 └── docs/
     ├── ollama.md             # run/export with Ollama + use as a backend
     ├── rag.md                # retrieval-augmented generation guide

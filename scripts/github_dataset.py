@@ -73,6 +73,30 @@ SYSTEM_PROMPT = (
 # GitHub API: list repositories
 # ---------------------------------------------------------------------------
 
+def _repo_record(repo: dict) -> dict:
+    return {
+        "full_name": repo["full_name"],
+        "clone_url": repo["clone_url"],
+        "default_branch": repo.get("default_branch", "main"),
+        "language": repo.get("language"),
+    }
+
+
+def get_repos_by_name(user: str, token: str, names: list) -> list:
+    """Fetch specific repos by name (accepts 'name' or 'owner/name')."""
+    out = []
+    for raw in names:
+        full = raw if "/" in raw else f"{user}/{raw}"
+        url = f"https://api.github.com/repos/{full}"
+        req = urllib.request.Request(url, headers=_gh_headers(token))
+        try:
+            with urllib.request.urlopen(req, timeout=30) as r:
+                out.append(_repo_record(json.loads(r.read())))
+        except urllib.error.HTTPError as e:
+            print(f"  Skipping {full}: API {e.code} (not found or no access)")
+    return out
+
+
 def list_repos(user: str, token: str, include_private: bool, include_forks: bool):
     """Return a list of {full_name, clone_url, default_branch, language}."""
     repos, page = [], 1
@@ -98,12 +122,7 @@ def list_repos(user: str, token: str, include_private: bool, include_forks: bool
                 continue
             if repo.get("private") and not include_private:
                 continue
-            repos.append({
-                "full_name": repo["full_name"],
-                "clone_url": repo["clone_url"],
-                "default_branch": repo.get("default_branch", "main"),
-                "language": repo.get("language"),
-            })
+            repos.append(_repo_record(repo))
         page += 1
     return repos
 
@@ -237,6 +256,10 @@ def main():
                     help="GitHub token (or set GITHUB_TOKEN). Needed for private repos.")
     ap.add_argument("--out", default="data/code_train.jsonl")
     ap.add_argument("--workdir", default=".cache/repos", help="Where repos are cloned.")
+    ap.add_argument("--repos", default="",
+                    help="Comma-separated repos to use (e.g. "
+                         "'social-agent-python,cacilian-be'). Accepts 'name' or "
+                         "'owner/name'. Overrides auto-listing of all repos.")
     ap.add_argument("--include-private", type=_bool, default=True)
     ap.add_argument("--include-forks", type=_bool, default=False)
     ap.add_argument("--max-repos", type=int, default=0, help="0 = all repos.")
@@ -262,10 +285,18 @@ def main():
         print("No token provided — only PUBLIC repos will be included.\n"
               "Set GITHUB_TOKEN (scope 'repo') to include private repos.\n")
 
-    print(f"Listing repos for {args.user} ...")
-    repos = list_repos(args.user, args.token, args.include_private, args.include_forks)
-    if args.max_repos:
-        repos = repos[:args.max_repos]
+    chosen = [r.strip() for r in args.repos.split(",") if r.strip()]
+    if chosen:
+        print(f"Fetching {len(chosen)} specified repo(s) ...")
+        repos = get_repos_by_name(args.user, args.token, chosen)
+    else:
+        print(f"Listing repos for {args.user} ...")
+        repos = list_repos(args.user, args.token,
+                           args.include_private, args.include_forks)
+        if args.max_repos:
+            repos = repos[:args.max_repos]
+    if not repos:
+        sys.exit("No repositories to process.")
     print(f"  {len(repos)} repo(s) to process.\n")
 
     workdir = Path(args.workdir)

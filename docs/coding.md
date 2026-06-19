@@ -46,12 +46,20 @@ What it does:
 
 Handy flags:
 ```bash
+--repos a,b,c              # train on SPECIFIC repos only ('name' or 'owner/name')
 --max-repos 5              # try a few repos first
 --include-private false    # public repos only
 --include-forks true       # include forks (off by default)
 --max-per-repo 200         # balance: cap examples per repo
 --modes completion         # only one example type
 --keep-clones              # keep cloned repos in .cache/repos
+```
+
+Pick exactly which repositories to learn from:
+```bash
+python scripts/github_dataset.py --user hassanmujtaba22 \
+    --repos "social-agent-python,cacilian-be,planify-clone" \
+    --out data/code_train.jsonl
 ```
 
 Then sanity-check it:
@@ -91,14 +99,25 @@ Tip: even **before** training, `--config configs/coding.yaml` loads the strong
 `Qwen2.5-Coder` base model, so you get a capable coding assistant immediately;
 fine-tuning then adapts it to your conventions.
 
-## No local GPU? Train in the cloud
+## No local GPU? Train in the cloud (one-click notebook)
 
-1. Open a notebook on Colab/Kaggle (free T4/P100) or rent a GPU on RunPod/Lambda.
-2. `git clone` this repo there, `pip install -r requirements.txt`.
-3. Set `GITHUB_TOKEN`, run Step 1 and Step 2.
-4. Download `outputs/mygpt-coder-adapter/` (a few MB) to your machine and run
-   Step 3 locally — inference is light enough for CPU/Apple Silicon, especially
-   via Ollama after merging (see `docs/ollama.md`).
+The fastest path is the included Colab notebook — it does Steps 1–2 for you on a
+free GPU and lets you download the adapter:
+
+**`notebooks/train_on_colab.ipynb`**
+
+1. Open it in [Google Colab](https://colab.research.google.com/) (File ▸ Upload
+   notebook, or open from GitHub).
+2. Runtime ▸ Change runtime type ▸ **GPU**.
+3. Run the cells: it clones MyGPT, installs deps, asks for your `GITHUB_TOKEN`,
+   lets you choose repos (the `REPOS` variable), builds the dataset, fine-tunes,
+   and downloads `mygpt-coder-adapter.zip`.
+4. On your machine, unzip it to `outputs/mygpt-coder-adapter/` and run Step 3 —
+   inference is light enough for CPU/Apple Silicon, especially via Ollama after
+   merging (see `docs/ollama.md`).
+
+Prefer to do it manually (Kaggle, RunPod, Lambda, your own box)? `git clone` this
+repo, `pip install -r requirements.txt`, set `GITHUB_TOKEN`, and run Steps 1–2.
 
 ## How much data / how long?
 
