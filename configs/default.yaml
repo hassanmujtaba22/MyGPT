@@ -1,0 +1,44 @@
+# MyGPT fine-tuning configuration
+# Edit the model to match what scripts/check_hardware.py recommends.
+
+model:
+  # Base model from Hugging Face. Some (Llama) require accepting a license first.
+  # Fully-open alternatives needing no gating:
+  #   Qwen/Qwen2.5-3B-Instruct, microsoft/Phi-3.5-mini-instruct,
+  #   HuggingFaceTB/SmolLM2-1.7B-Instruct
+  name: "Qwen/Qwen2.5-3B-Instruct"
+
+  # Load base weights in 4-bit (QLoRA). Requires an NVIDIA GPU + bitsandbytes.
+  # On Apple Silicon / CPU this is auto-disabled by the training script.
+  load_in_4bit: true
+
+  # Max tokens per training example. Lower this if you run out of memory.
+  max_seq_len: 1024
+
+data:
+  train_file: "data/train.jsonl"
+  # Optional held-out file for evaluation; leave empty to skip.
+  eval_file: ""
+
+# LoRA adapter settings — these control the trainable parameters.
+lora:
+  r: 16              # rank: higher = more capacity (and memory). 8–64 typical.
+  alpha: 32          # scaling, usually 2x r.
+  dropout: 0.05
+  # Which layers to adapt. "all-linear" is a safe default across architectures.
+  target_modules: "all-linear"
+
+training:
+  output_dir: "outputs/mygpt-adapter"
+  epochs: 3
+  # Effective batch = batch_size * grad_accum. Raise grad_accum if low on VRAM.
+  batch_size: 1
+  grad_accum: 8
+  learning_rate: 2.0e-4
+  warmup_ratio: 0.03
+  weight_decay: 0.0
+  logging_steps: 10
+  save_steps: 100
+  seed: 42
+  # bf16 on modern NVIDIA (Ampere+), fp16 on older. Auto-selected if "auto".
+  precision: "auto"

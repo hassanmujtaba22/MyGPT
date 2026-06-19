@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+*.egg-info/
+
+# Training artifacts & models
+outputs/
+*.gguf
+*.bin
+*.safetensors
+checkpoint-*/
+runs/
+wandb/
+
+# HF / caches
+.cache/
+.huggingface/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
