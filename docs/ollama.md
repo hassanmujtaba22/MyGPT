@@ -58,3 +58,34 @@ ollama run mygpt
 
 Now `mygpt` runs fully locally — including through Ollama's HTTP API at
 `http://localhost:11434`, which you can call from any app.
+
+## Option C — Use Ollama as MyGPT's backend
+
+This project can route all generation (CLI chat, RAG, and the web UI) through
+Ollama instead of loading the model with transformers. This is the easiest path
+on CPU or Apple Silicon.
+
+1. Start Ollama and make sure a model is available:
+   ```bash
+   ollama serve              # if not already running
+   ollama pull qwen2.5:3b    # or your custom 'mygpt' from above
+   ```
+2. Point the config at it (`configs/default.yaml`):
+   ```yaml
+   backend:
+     type: "ollama"
+     ollama:
+       host: "http://localhost:11434"
+       model: "qwen2.5:3b"   # or "mygpt"
+   ```
+3. Run anything with the Ollama backend (or override per-command):
+   ```bash
+   python scripts/chat.py     --backend ollama
+   python scripts/rag_chat.py --backend ollama
+   python scripts/serve.py    --backend ollama
+   ```
+
+> Note: the Ollama backend serves whatever model you name. To use your
+> **fine-tuned** weights here, merge + convert to GGUF and `ollama create` it
+> (Option B), then set that model name. Otherwise the transformers backend is
+> the most direct way to use your LoRA adapter.

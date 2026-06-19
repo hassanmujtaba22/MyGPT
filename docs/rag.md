@@ -49,6 +49,19 @@ setup answers "Demoville" straight from `knowledge/example.md`.
 - **Chunking:** overlapping word windows (`chunk_size` / `chunk_overlap` in the
   config). Smaller chunks = more precise retrieval; larger = more context each.
 
+## Citations & page numbers
+
+Each retrieved chunk carries its source file and, for PDFs, the **page number**
+it came from. PDFs are chunked *within* each page, so a chunk maps to exactly one
+page. The model is prompted to cite sources as `[1]`, `[2]`, and:
+
+- in the **CLI** (`rag_chat.py`), a `Sources:` line lists each `[n] file p.X`;
+  add `--show-sources` to also see scores and previews.
+- in the **web UI**, citation markers are highlighted and a Sources panel shows
+  `[n] file p.X · score` with a text preview.
+
+Plain-text sources (`.txt/.md/.rst`) have no page number and are cited by file.
+
 ## Tuning retrieval
 
 - **Answers miss relevant info?** Increase `rag.top_k` (e.g. 4 → 6) or lower

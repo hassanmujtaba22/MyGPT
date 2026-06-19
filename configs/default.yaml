@@ -43,6 +43,18 @@ training:
   # bf16 on modern NVIDIA (Ampere+), fp16 on older. Auto-selected if "auto".
   precision: "auto"
 
+# Generation backend: where text generation runs.
+#   transformers -> load the base model + your LoRA adapter in-process (QLoRA on
+#                   NVIDIA GPUs). Best for using your fine-tuned adapter directly.
+#   ollama       -> call a local Ollama server (great on CPU / Apple Silicon, or
+#                   to serve your merged+GGUF model). See docs/ollama.md.
+# Override at runtime with --backend on chat.py / rag_chat.py / serve.py.
+backend:
+  type: "transformers"
+  ollama:
+    host: "http://localhost:11434"
+    model: "qwen2.5:3b"     # or your own: 'ollama create mygpt -f Modelfile'
+
 # Retrieval-Augmented Generation (RAG): answer questions grounded in YOUR
 # documents at query time — no retraining needed. Build the index with
 # scripts/rag_ingest.py, then chat with scripts/rag_chat.py.

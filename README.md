@@ -13,7 +13,12 @@ style, knowledge, or task with a small dataset.
 **Two complementary techniques** (use either or both):
 - **Fine-tuning (QLoRA)** — teaches the model your *style and behavior*.
 - **RAG** — supplies the model with *facts* from your documents at query time,
-  no retraining needed. See [`docs/rag.md`](docs/rag.md).
+  no retraining needed, with page-aware citations. See [`docs/rag.md`](docs/rag.md).
+
+**Run it your way:**
+- 💬 **CLI chat** (`scripts/chat.py`) or 🌐 **web UI** (`scripts/serve.py`).
+- 🔌 **Pluggable backend** — generate via local **transformers** (uses your LoRA
+  adapter directly) or via **Ollama** (great on CPU/Apple Silicon).
 
 ---
 
@@ -44,6 +49,30 @@ python scripts/rag_chat.py   --config configs/default.yaml --show-sources
 ```
 RAG needs no GPU or training and works with the base or fine-tuned model. Full
 guide in [`docs/rag.md`](docs/rag.md).
+
+### Optional: web UI (chat + RAG in the browser)
+
+```bash
+python scripts/serve.py --config configs/default.yaml
+# open http://localhost:8000
+```
+A chat interface with a "Use my documents" toggle and a citations panel
+(file + page number). Works with either backend. See [`docs/webui.md`](docs/webui.md).
+
+### Choosing a backend (transformers vs Ollama)
+
+Set `backend.type` in the config, or override per command with `--backend`:
+
+```bash
+python scripts/chat.py     --backend ollama
+python scripts/rag_chat.py --backend transformers
+python scripts/serve.py    --backend ollama
+```
+- **transformers** — runs the base model + your LoRA adapter in-process (QLoRA on
+  NVIDIA). Most direct way to use your fine-tuned adapter.
+- **ollama** — calls a local Ollama server; ideal on CPU/Apple Silicon. To serve
+  your *fine-tuned* weights here, merge + convert to GGUF first
+  (see [`docs/ollama.md`](docs/ollama.md)).
 
 ---
 
@@ -102,14 +131,19 @@ MyGPT/
 │   ├── prepare_data.py       # validate & format your dataset
 │   ├── train.py              # QLoRA fine-tuning
 │   ├── merge.py              # merge adapter into base model (optional)
-│   ├── chat.py               # chat with your fine-tuned model
+│   ├── chat.py               # CLI chat with your fine-tuned model
 │   ├── rag_ingest.py         # build a RAG index from knowledge/
-│   ├── rag_chat.py           # chat grounded in your documents (RAG)
+│   ├── rag_chat.py           # CLI chat grounded in your documents (RAG)
+│   ├── serve.py              # web UI server (chat + RAG + citations)
 │   ├── _rag.py               # RAG internals (chunking, embeddings, search)
+│   ├── _llm.py               # backend abstraction (transformers / Ollama)
 │   └── _common.py            # shared helpers (config, model loading)
+├── webui/
+│   └── index.html            # self-contained web chat front-end
 └── docs/
-    ├── ollama.md             # run/export with Ollama (no-training path)
+    ├── ollama.md             # run/export with Ollama + use as a backend
     ├── rag.md                # retrieval-augmented generation guide
+    ├── webui.md              # web UI guide
     └── faq.md
 ```
 

@@ -17,7 +17,11 @@ TEXT_SUFFIXES = {".txt", ".md", ".markdown", ".rst"}
 
 
 def load_documents(source_dir: str) -> list:
-    """Load all supported documents under source_dir into {path, text} dicts.
+    """Load supported documents under source_dir into page-aware records.
+
+    Each document is {path, segments}, where segments is a list of
+    {page, text}. PDFs yield one segment per page (so citations can include
+    page numbers); plain-text files yield a single segment with page=None.
 
     Supports .txt/.md/.rst natively, and .pdf if 'pypdf' is installed.
     """
@@ -32,30 +36,37 @@ def load_documents(source_dir: str) -> list:
         suffix = path.suffix.lower()
         if suffix in TEXT_SUFFIXES:
             text = path.read_text(encoding="utf-8", errors="ignore")
+            segments = [{"page": None, "text": text}] if text.strip() else []
         elif suffix == ".pdf":
-            text = _read_pdf(path)
+            segments = _read_pdf_pages(path)
         else:
             continue
-        if text and text.strip():
-            docs.append({"path": str(path), "text": text})
+        if segments:
+            docs.append({"path": str(path), "segments": segments})
     if not docs:
         sys.exit(f"No readable documents found in {source_dir} "
                  f"(supported: .txt, .md, .rst, .pdf).")
     return docs
 
 
-def _read_pdf(path: Path) -> str:
+def _read_pdf_pages(path: Path) -> list:
+    """Return a list of {page, text} (1-indexed) for a PDF, page by page."""
     try:
         from pypdf import PdfReader
     except ImportError:
         print(f"  Skipping {path.name}: install 'pypdf' to read PDFs.")
-        return ""
+        return []
     try:
         reader = PdfReader(str(path))
-        return "\n".join((page.extract_text() or "") for page in reader.pages)
     except Exception as e:
         print(f"  Could not read {path.name}: {e}")
-        return ""
+        return []
+    pages = []
+    for i, page in enumerate(reader.pages, start=1):
+        text = page.extract_text() or ""
+        if text.strip():
+            pages.append({"page": i, "text": text})
+    return pages
 
 
 # ---------------------------------------------------------------------------
@@ -84,16 +95,32 @@ def chunk_text(text: str, chunk_size: int = 800, overlap: int = 150) -> list:
 
 
 def build_chunks(docs: list, chunk_size: int, overlap: int) -> list:
-    """Turn documents into a flat list of chunk records with source metadata."""
+    """Turn documents into a flat list of chunk records with source metadata.
+
+    Chunking happens within each segment (i.e. within a single PDF page) so a
+    chunk maps to exactly one page and citations stay page-accurate. The 'page'
+    field is None for plain-text sources.
+    """
     records = []
     for doc in docs:
-        for i, chunk in enumerate(chunk_text(doc["text"], chunk_size, overlap)):
-            records.append({
-                "text": chunk,
-                "source": doc["path"],
-                "chunk": i,
-            })
+        i = 0
+        for seg in doc["segments"]:
+            for chunk in chunk_text(seg["text"], chunk_size, overlap):
+                records.append({
+                    "text": chunk,
+                    "source": doc["path"],
+                    "page": seg.get("page"),
+                    "chunk": i,
+                })
+                i += 1
     return records
+
+
+def citation_label(rec: dict) -> str:
+    """Human-readable source label, e.g. 'knowledge/manual.pdf p.7'."""
+    src = rec.get("source", "?")
+    page = rec.get("page")
+    return f"{src} p.{page}" if page is not None else src
 
 
 # ---------------------------------------------------------------------------
@@ -157,6 +184,52 @@ def load_index(index_dir: str):
                 records.append(json.loads(line))
     meta = json.loads((idx / "meta.json").read_text())
     return embeddings, records, meta
+
+
+class Retriever:
+    """Loads a built index + its embedder and answers similarity queries.
+
+    Shared by the RAG CLI and the web server so retrieval behaves identically.
+    """
+
+    def __init__(self, index_dir: str):
+        self.embeddings, self.records, self.meta = load_index(index_dir)
+        self.embedder = get_embedder(self.meta["embed_model"])
+
+    @property
+    def count(self) -> int:
+        return self.meta["count"]
+
+    @property
+    def embed_model(self) -> str:
+        return self.meta["embed_model"]
+
+    def retrieve(self, question: str, top_k: int = 4) -> list:
+        qvec = embed_texts(self.embedder, [question])[0]
+        return search(qvec, self.embeddings, self.records, top_k=top_k)
+
+
+def build_context(chunks: list) -> tuple:
+    """Return (context_text, sources) for a set of retrieved chunks.
+
+    context_text is the numbered, labeled block to inject into the prompt.
+    sources is a list of dicts ({n, source, page, label, score, preview}) for
+    display / citations in CLI or UI.
+    """
+    blocks, sources = [], []
+    for i, c in enumerate(chunks, start=1):
+        label = citation_label(c)
+        blocks.append(f"[{i}] (source: {label})\n{c['text']}")
+        sources.append({
+            "n": i,
+            "source": c.get("source"),
+            "page": c.get("page"),
+            "label": label,
+            "score": round(float(c.get("score", 0.0)), 3),
+            "preview": c["text"][:160].replace("\n", " "),
+        })
+    context = "\n\n".join(blocks) if blocks else "(no context found)"
+    return context, sources
 
 
 def search(query_vec, embeddings, records: list, top_k: int = 4) -> list:
