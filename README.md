@@ -3,11 +3,17 @@
 This project lets you **fine-tune an existing open-source language model** on your
 own data and then run it on your machine. It uses **QLoRA** (4-bit quantized
 LoRA), the modern, memory-efficient technique that makes fine-tuning possible
-even on consumer hardware.
+even on consumer hardware. It also includes **RAG** so MyGPT can answer
+questions grounded in your own documents.
 
 You don't train a model from scratch (that costs millions). Instead you take a
 strong open base model (e.g. Llama 3.2, Qwen2.5, Phi-3) and teach it your
 style, knowledge, or task with a small dataset.
+
+**Two complementary techniques** (use either or both):
+- **Fine-tuning (QLoRA)** — teaches the model your *style and behavior*.
+- **RAG** — supplies the model with *facts* from your documents at query time,
+  no retraining needed. See [`docs/rag.md`](docs/rag.md).
 
 ---
 
@@ -28,6 +34,16 @@ python scripts/check_hardware.py
 python scripts/train.py   --config configs/default.yaml
 python scripts/chat.py    --config configs/default.yaml
 ```
+
+### Optional: chat with your own documents (RAG)
+
+```bash
+# Put your files (.txt/.md/.rst/.pdf) in the knowledge/ folder, then:
+python scripts/rag_ingest.py --config configs/default.yaml   # build the index
+python scripts/rag_chat.py   --config configs/default.yaml --show-sources
+```
+RAG needs no GPU or training and works with the base or fine-tuned model. Full
+guide in [`docs/rag.md`](docs/rag.md).
 
 ---
 
@@ -79,14 +95,21 @@ MyGPT/
 ├── data/
 │   ├── train.jsonl           # your training examples (edit this!)
 │   └── README.md             # data format guide
+├── knowledge/                # drop RAG source docs here (.txt/.md/.rst/.pdf)
+│   └── example.md            # sample doc to try RAG immediately
 ├── scripts/
 │   ├── check_hardware.py     # detect GPU/RAM and recommend a setup
 │   ├── prepare_data.py       # validate & format your dataset
 │   ├── train.py              # QLoRA fine-tuning
 │   ├── merge.py              # merge adapter into base model (optional)
-│   └── chat.py               # chat with your fine-tuned model
+│   ├── chat.py               # chat with your fine-tuned model
+│   ├── rag_ingest.py         # build a RAG index from knowledge/
+│   ├── rag_chat.py           # chat grounded in your documents (RAG)
+│   ├── _rag.py               # RAG internals (chunking, embeddings, search)
+│   └── _common.py            # shared helpers (config, model loading)
 └── docs/
     ├── ollama.md             # run/export with Ollama (no-training path)
+    ├── rag.md                # retrieval-augmented generation guide
     └── faq.md
 ```
 

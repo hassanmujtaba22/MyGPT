@@ -18,5 +18,14 @@ pyyaml>=6.0
 sentencepiece>=0.2.0
 protobuf>=4.25.0
 
+# RAG: local embeddings + document retrieval
+sentence-transformers>=3.0.0
+numpy>=1.24.0
+pypdf>=4.0.0            # read PDFs in your knowledge folder (optional)
+
+# Optional: FAISS for very large document sets (the default NumPy store is fine
+# for thousands of chunks). Uncomment if you need to scale up.
+# faiss-cpu>=1.8.0
+
 # Optional: faster attention on supported NVIDIA GPUs (uncomment if desired)
 # flash-attn>=2.5.0

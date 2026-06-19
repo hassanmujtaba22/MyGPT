@@ -84,3 +84,75 @@ def bnb_available() -> bool:
         return True
     except Exception:
         return False
+
+
+def load_model_and_tokenizer(cfg: dict, use_adapter: bool = True):
+    """Load the base model (4-bit QLoRA when possible) plus tokenizer, and
+    apply the fine-tuned LoRA adapter if one exists. Shared by chat.py and
+    rag_chat.py so there's a single loading code path.
+    """
+    import sys
+
+    try:
+        from transformers import (AutoModelForCausalLM, AutoTokenizer,
+                                   BitsAndBytesConfig)
+    except ImportError as e:
+        sys.exit(f"Missing dependency: {e}\nRun: pip install -r requirements.txt")
+
+    mcfg = cfg["model"]
+    adapter_dir = cfg["training"]["output_dir"]
+    dtype, _ = pick_dtype(cfg["training"].get("precision", "auto"))
+
+    use_qlora = mcfg.get("load_in_4bit", True) and cuda_available() and bnb_available()
+    quant_config = None
+    if use_qlora:
+        quant_config = BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_quant_type="nf4",
+            bnb_4bit_compute_dtype=dtype,
+            bnb_4bit_use_double_quant=True,
+        )
+
+    print(f"Loading base model: {mcfg['name']} ...")
+    tokenizer = AutoTokenizer.from_pretrained(mcfg["name"])
+    model = AutoModelForCausalLM.from_pretrained(
+        mcfg["name"],
+        quantization_config=quant_config,
+        torch_dtype=dtype,
+        device_map="auto" if cuda_available() else None,
+    )
+
+    if use_adapter and Path(adapter_dir).exists():
+        from peft import PeftModel
+        print(f"Applying fine-tuned adapter: {adapter_dir}")
+        model = PeftModel.from_pretrained(model, adapter_dir)
+    elif use_adapter:
+        print(f"NOTE: No adapter found at {adapter_dir}. Using base model. "
+              f"(Train first with scripts/train.py, or pass --base.)")
+
+    model.eval()
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+    return model, tokenizer
+
+
+def generate_reply(model, tokenizer, history: list, max_new_tokens: int = 512,
+                   temperature: float = 0.7, top_p: float = 0.9) -> str:
+    """Run one generation pass over a chat history and return the reply text."""
+    import torch
+    prompt = tokenizer.apply_chat_template(
+        history, tokenize=False, add_generation_prompt=True
+    )
+    inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
+    with torch.no_grad():
+        out = model.generate(
+            **inputs,
+            max_new_tokens=max_new_tokens,
+            do_sample=True,
+            temperature=temperature,
+            top_p=top_p,
+            pad_token_id=tokenizer.pad_token_id,
+        )
+    return tokenizer.decode(
+        out[0][inputs["input_ids"].shape[1]:], skip_special_tokens=True
+    ).strip()

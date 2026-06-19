@@ -42,3 +42,20 @@ training:
   seed: 42
   # bf16 on modern NVIDIA (Ampere+), fp16 on older. Auto-selected if "auto".
   precision: "auto"
+
+# Retrieval-Augmented Generation (RAG): answer questions grounded in YOUR
+# documents at query time — no retraining needed. Build the index with
+# scripts/rag_ingest.py, then chat with scripts/rag_chat.py.
+rag:
+  # Folder containing your source documents (.txt, .md, .rst, .pdf).
+  source_dir: "knowledge"
+  # Where the built vector index is stored.
+  index_dir: "outputs/rag_index"
+  # Embedding model (small + fast + CPU-friendly). Runs locally.
+  embed_model: "sentence-transformers/all-MiniLM-L6-v2"
+  # Chunking, in words. Smaller chunks = more precise retrieval; larger = more
+  # context per chunk. Overlap preserves context across boundaries.
+  chunk_size: 800
+  chunk_overlap: 150
+  # How many chunks to retrieve and feed to the model per question.
+  top_k: 4
