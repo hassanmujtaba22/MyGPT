@@ -24,9 +24,17 @@ def main():
     ap.add_argument("--backend", choices=["transformers", "ollama"], default=None,
                     help="Override the generation backend from the config.")
     ap.add_argument("--system", default="You are MyGPT, a helpful, concise assistant.")
+    ap.add_argument("--coding", action="store_true",
+                    help="Use a coding-assistant system prompt.")
     ap.add_argument("--max-new-tokens", type=int, default=512)
     args = ap.parse_args()
     cfg = load_config(args.config)
+
+    system = args.system
+    if args.coding:
+        system = ("You are MyGPT, an expert pair programmer fine-tuned on the "
+                  "user's own code. Write clean, idiomatic code in their style, "
+                  "explain your reasoning briefly, and prefer working examples.")
 
     backend = get_backend(cfg, backend=args.backend, use_adapter=not args.base)
 
@@ -34,7 +42,7 @@ def main():
     print(f"MyGPT chat ({backend.describe()}) — type 'exit' to quit.")
     print("=" * 50)
 
-    history = [{"role": "system", "content": args.system}]
+    history = [{"role": "system", "content": system}]
     while True:
         try:
             user = input("\nYou: ").strip()

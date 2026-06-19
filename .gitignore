@@ -15,6 +15,11 @@ checkpoint-*/
 runs/
 wandb/
 
+# Cloned repos + generated code dataset (may contain PRIVATE code — never commit)
+.cache/
+data/code_train.jsonl
+data/code_eval.jsonl
+
 # HF / caches
 .cache/
 .huggingface/

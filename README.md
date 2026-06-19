@@ -19,6 +19,8 @@ style, knowledge, or task with a small dataset.
 - 💬 **CLI chat** (`scripts/chat.py`) or 🌐 **web UI** (`scripts/serve.py`).
 - 🔌 **Pluggable backend** — generate via local **transformers** (uses your LoRA
   adapter directly) or via **Ollama** (great on CPU/Apple Silicon).
+- 👨‍💻 **Coding assistant** — train MyGPT on *your own GitHub repos* so it codes in
+  your style. See [`docs/coding.md`](docs/coding.md).
 
 ---
 
@@ -58,6 +60,24 @@ python scripts/serve.py --config configs/default.yaml
 ```
 A chat interface with a "Use my documents" toggle and a citations panel
 (file + page number). Works with either backend. See [`docs/webui.md`](docs/webui.md).
+
+### Train a coding assistant on your GitHub repos
+
+Make MyGPT write code in *your* style by fine-tuning a code model on your repos:
+
+```bash
+export GITHUB_TOKEN=ghp_xxx          # 'repo' scope to include private repos
+# 1. Turn your repos into a coding dataset (clones + converts, fully local)
+python scripts/github_dataset.py --user <your-username> --out data/code_train.jsonl
+# 2. Fine-tune a code model (needs a GPU — local or cloud)
+python scripts/train.py --config configs/coding.yaml
+# 3. Code with it
+python scripts/chat.py  --config configs/coding.yaml --coding
+```
+The dataset builder skips `node_modules`, build output, lockfiles, tests, and
+anything secret-looking; cloned repos and the dataset are git-ignored so private
+code never gets committed. Full guide (incl. cloud-GPU training) in
+[`docs/coding.md`](docs/coding.md).
 
 ### Choosing a backend (transformers vs Ollama)
 
@@ -120,7 +140,8 @@ MyGPT/
 ├── README.md
 ├── requirements.txt
 ├── configs/
-│   └── default.yaml          # model, data, and training settings
+│   ├── default.yaml          # general chat fine-tuning settings
+│   └── coding.yaml           # coding model + GitHub-repo dataset settings
 ├── data/
 │   ├── train.jsonl           # your training examples (edit this!)
 │   └── README.md             # data format guide
@@ -130,6 +151,7 @@ MyGPT/
 │   ├── check_hardware.py     # detect GPU/RAM and recommend a setup
 │   ├── prepare_data.py       # validate & format your dataset
 │   ├── train.py              # QLoRA fine-tuning
+│   ├── github_dataset.py     # build a coding dataset from your GitHub repos
 │   ├── merge.py              # merge adapter into base model (optional)
 │   ├── chat.py               # CLI chat with your fine-tuned model
 │   ├── rag_ingest.py         # build a RAG index from knowledge/
@@ -144,6 +166,7 @@ MyGPT/
     ├── ollama.md             # run/export with Ollama + use as a backend
     ├── rag.md                # retrieval-augmented generation guide
     ├── webui.md              # web UI guide
+    ├── coding.md             # train a coding assistant on your repos
     └── faq.md
 ```
 
